@@ -46,6 +46,21 @@ object SessionDisplay {
     /** Below this, a half folded screen leaves no room worth playing on, or for the controls. */
     const val FOLDED_MIN_SIDE = 240
 
+    /** When the controls show: on the whole unfolded screen, or below the hinge of a half folded one. */
+    const val CONTROLS_UNFOLDED = "unfolded"
+    const val CONTROLS_HALF_FOLDED = "halfFolded"
+
+    const val UNFOLDED_MIN_DP = 600
+    const val UNFOLDED_MAX_GAME_SHARE = 0.8f
+
+    /**
+     * The game's size at the top of an unfolded screen, the controls taking the rest: the top half for
+     * [FOLDED_FILL], else the largest box of that shape across the width, in at most 80% of the height.
+     */
+    fun unfoldedGameSize(width: Int, height: Int, aspect: String): Pair<Int, Int> =
+        if (aspect == FOLDED_FILL) (width and 1.inv()) to (height / 2 and 1.inv())
+        else foldedGameSize(width, (height * UNFOLDED_MAX_GAME_SHARE).toInt(), aspect)
+
     /**
      * The game's size above the fold of a half folded phone: the whole space for [FOLDED_FILL], else the
      * largest box of that shape in it, which the session then centres horizontally.
