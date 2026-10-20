@@ -220,6 +220,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     /** The game in front, for its own Follow screen divisor; null in the Steam client. */
     private var followGame by mutableStateOf<String?>(null)
     private var gameFollowDivisor by mutableStateOf<Int?>(null)
+    private var followWindowSize by mutableStateOf<String?>(null)
     private var sessionFollowDivisor = 1
     private var gestureSettingsOpen by mutableStateOf(false)
     private var recognizedGesture by mutableStateOf<TouchscreenGestures.Gesture?>(null)
@@ -810,6 +811,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                     selectedSecondScreenDisplay = selectedSecondScreenDisplay,
                     onHud = { on -> SessionPrefs.setHudEnabled(this@SessionActivity, on); hudOn = on; hud.refresh() },
                     followGame = if (SessionState.followScreen) followGame else null,
+                    followWindowSize = followWindowSize,
                     gameFollowDivisor = gameFollowDivisor,
                     onGameFollowDivisor = ::chooseGameFollowDivisor,
                     onUpscaler = { m ->
@@ -1662,7 +1664,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             cancelTouchGestures()
             Log.i(TAG, "surface resized to ${width}x$height - rebinding the compositor")
             CompositorHost.resize(holder.surface) { applyFrameGen() }
-            followWindow(width, height)
+            applyGameFollowDivisor()
+        } else {
+            followWindowSize = "${width}x$height"
         }
     }
 
@@ -1679,17 +1683,22 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     /** Follow screen renders the game in front at its own divisor, the Steam client at the session's. */
     private fun applyGameFollowDivisor() {
-        gameFollowDivisor = followGame?.let { SessionPrefs.gameFollowDivisor(this, it) }
+        val window = if (surfaceW > 0) "${surfaceW}x$surfaceH" else null
+        followWindowSize = window
+        gameFollowDivisor = followGame?.let { game -> window?.let { SessionPrefs.gameFollowDivisor(this, game, it) } }
         val divisor = gameFollowDivisor ?: sessionFollowDivisor
-        if (!SessionState.followScreen || divisor == SessionState.followDivisor) return
-        Log.i(TAG, "follow screen: divisor ${SessionState.followDivisor} -> $divisor for ${followGame ?: "the client"}")
-        SessionState.followDivisor = divisor
+        if (!SessionState.followScreen) return
+        if (divisor != SessionState.followDivisor) {
+            Log.i(TAG, "follow screen: divisor ${SessionState.followDivisor} -> $divisor for ${followGame ?: "the client"} at $window")
+            SessionState.followDivisor = divisor
+        }
         if (surfaceW > 0) followWindow(surfaceW, surfaceH)
     }
 
     private fun chooseGameFollowDivisor(divisor: Int?) {
         val game = followGame ?: return
-        SessionPrefs.setGameFollowDivisor(this, game, divisor)
+        val window = followWindowSize ?: return
+        SessionPrefs.setGameFollowDivisor(this, game, window, divisor)
         applyGameFollowDivisor()
     }
 

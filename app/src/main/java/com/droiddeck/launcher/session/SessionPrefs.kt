@@ -913,14 +913,16 @@ object SessionPrefs {
         prefs(context).edit().putString("foldedAspect", aspect).apply()
     }
 
-    /** A game's own Follow screen divisor (1 to 4), or null to keep the session's. */
-    fun gameFollowDivisor(context: Context, game: String): Int? =
-        prefs(context).getInt("followDivisor.$game", 0).takeIf { it == 1 || it in SessionDisplay.FOLLOW_DIVISORS }
+    /**
+     * A game's own Follow screen divisor (1 to 4) for one window size ("2184x984": a panel, an
+     * orientation, the space above the fold), or null to keep the session's.
+     */
+    fun gameFollowDivisor(context: Context, game: String, window: String): Int? =
+        prefs(context).getInt("followDivisor.$game.$window", 0).takeIf { it == 1 || it in SessionDisplay.FOLLOW_DIVISORS }
 
-    fun setGameFollowDivisor(context: Context, game: String, divisor: Int?) {
-        prefs(context).edit().apply {
-            if (divisor == null) remove("followDivisor.$game") else putInt("followDivisor.$game", divisor)
-        }.apply()
+    fun setGameFollowDivisor(context: Context, game: String, window: String, divisor: Int?) {
+        val key = "followDivisor.$game.$window"
+        prefs(context).edit().apply { if (divisor == null) remove(key) else putInt(key, divisor) }.apply()
     }
 
     val DECK_CONTROLS_SCALES = listOf(70, 80, 90, 100)

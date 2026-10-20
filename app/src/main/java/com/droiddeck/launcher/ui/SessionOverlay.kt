@@ -250,6 +250,7 @@ class DrawerActions(
     val onUpscaler: (Int) -> Unit = {},
     /** The game in front while the session follows the screen, else null. */
     val followGame: String? = null,
+    val followWindowSize: String? = null,
     val gameFollowDivisor: Int? = null,
     val onGameFollowDivisor: (Int?) -> Unit = {},
     val onUpscaleSharpness: (Int) -> Unit = {},
@@ -482,8 +483,8 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                                 }
                             }
                             SettingsGroup(stringResource(R.string.display_image_scaling)) {
-                                if (a.followGame != null) ChoiceRow(host, "game-follow-divisor", stringResource(R.string.display_game_follow_divisor),
-                                    stringResource(R.string.display_game_follow_divisor_hint),
+                                if (a.followGame != null && a.followWindowSize != null) ChoiceRow(host, "game-follow-divisor", stringResource(R.string.display_game_follow_divisor),
+                                    stringResource(R.string.display_game_follow_divisor_hint, a.followWindowSize.replace('x', '×')),
                                     listOf<Pair<Int?, String>>(null to stringResource(R.string.display_game_follow_divisor_session), 1 to "÷1") +
                                         com.droiddeck.launcher.session.SessionDisplay.FOLLOW_DIVISORS.map { it to "÷$it" },
                                     a.gameFollowDivisor, chipModifier = focus.track(page, "game-follow-divisor"), onPick = a.onGameFollowDivisor)
