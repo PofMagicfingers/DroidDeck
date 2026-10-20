@@ -86,6 +86,10 @@ object SessionState {
     @Volatile
     var followScreen = false
 
+    /** Follow screen renders at the window's size divided by this. */
+    @Volatile
+    var followDivisor = 1
+
     @Volatile
     var refreshHz: Float = 60f
 

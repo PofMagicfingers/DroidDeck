@@ -464,7 +464,10 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             )
         }
         applyOutputPacing()
-        if (!SessionState.running) SessionState.followScreen = followChoice()
+        if (!SessionState.running) {
+            SessionState.followDivisor = followDivisorChoice() ?: 1
+            SessionState.followScreen = followDivisorChoice() != null
+        }
         applyFollowOrientation(resources.configuration)
         goFullscreen()
         volumeControlStream = android.media.AudioManager.STREAM_MUSIC
@@ -1562,7 +1565,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
 
         val previous = SessionState.outputSize
         val live = if (SessionState.followScreen && !isInPictureInPictureMode)
-            com.droiddeck.launcher.session.SessionDisplay.followSize(holder.surfaceFrame.width(), holder.surfaceFrame.height())
+            com.droiddeck.launcher.session.SessionDisplay.followSize(holder.surfaceFrame.width(), holder.surfaceFrame.height(), SessionState.followDivisor)
         else null
         val size = live ?: if (SessionState.running) previous else glassesOutputSize() ?: outputSize()
         SessionState.outputSize = size
@@ -1656,7 +1659,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     private fun followWindow(width: Int, height: Int) {
         if (!SessionState.followScreen || isInPictureInPictureMode || !CompositorHost.isStarted) return
-        val size = com.droiddeck.launcher.session.SessionDisplay.followSize(width, height) ?: return
+        val size = com.droiddeck.launcher.session.SessionDisplay.followSize(width, height, SessionState.followDivisor) ?: return
         if (size == SessionState.outputSize) return
         Log.i(TAG, "follow screen: ${SessionState.outputSize.first}x${SessionState.outputSize.second} -> ${size.first}x${size.second}")
         SessionState.outputSize = size
@@ -1665,11 +1668,12 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         WaylandCompositor.nativeResizeOutput(size.first, size.second)
     }
 
-    private fun followChoice(): Boolean {
+    private fun followDivisorChoice(): Int? {
         val mode = displayMode()
-        return SessionPrefs.resolutionChoice(this, mode, com.droiddeck.launcher.session.SessionDisplay.panelSize(this)) ==
-            com.droiddeck.launcher.session.SessionDisplay.FOLLOW_SCREEN
+        return com.droiddeck.launcher.session.SessionDisplay.followDivisor(
+            SessionPrefs.resolutionChoice(this, mode, com.droiddeck.launcher.session.SessionDisplay.panelSize(this)))
     }
+
 
     private fun applyFollowOrientation(config: android.content.res.Configuration) {
         val wanted = if (SessionState.followScreen && config.smallestScreenWidthDp >= 600) {
@@ -3195,7 +3199,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         val display = com.droiddeck.launcher.session.SessionDisplay
         val choice = SessionPrefs.resolutionChoice(this, mode, panel)
         val size = display.resolveChoice(panel, choice)
-        val fixed = choice != display.MATCH_SCREEN && choice != display.FOLLOW_SCREEN && display.presetHeight(choice) == null
+        val fixed = choice != display.MATCH_SCREEN && display.followDivisor(choice) == null && display.presetHeight(choice) == null
         return if (fixed) display.resolve(panel, minOf(size.first, size.second), SessionPrefs.SHAPE_AUTO) else size
     }
 

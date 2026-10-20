@@ -8,6 +8,18 @@ object SessionDisplay {
     const val FOLLOW_SCREEN = "follow"
     const val FOLLOW_MIN_SIDE = 480
 
+    /** Follow screen at a fraction of the window's size: "follow/2" renders at half its width and height. */
+    val FOLLOW_DIVISORS = listOf(2, 3, 4)
+
+    fun followChoice(divisor: Int): String = if (divisor <= 1) FOLLOW_SCREEN else "$FOLLOW_SCREEN/$divisor"
+
+    /** 1 for Follow screen, its divisor for a fraction of it, null for any other choice. */
+    fun followDivisor(choice: String): Int? = when {
+        choice == FOLLOW_SCREEN -> 1
+        choice.startsWith("$FOLLOW_SCREEN/") -> choice.substringAfter('/').toIntOrNull()?.takeIf { it in FOLLOW_DIVISORS }
+        else -> null
+    }
+
     const val DEFAULT_RESOLUTION = "720p"
     private val PRESET_HEIGHTS = listOf(720, 900, 1080)
 
@@ -18,7 +30,11 @@ object SessionDisplay {
         (maxOf(panel.first, panel.second) and 1.inv()) to (minOf(panel.first, panel.second) and 1.inv())
 
     fun resolveChoice(panel: Pair<Int, Int>, choice: String): Pair<Int, Int> {
-        if (choice == MATCH_SCREEN || choice == FOLLOW_SCREEN) return screenSize(panel)
+        if (choice == MATCH_SCREEN) return screenSize(panel)
+        followDivisor(choice)?.let { divisor ->
+            val (w, h) = screenSize(panel)
+            return (w / divisor and 1.inv()) to (h / divisor and 1.inv())
+        }
         presetHeight(choice)?.let { return resolve(panel, it, SessionPrefs.SHAPE_AUTO) }
         val parts = choice.split('x').map { it.toIntOrNull() }
         return if (parts.size == 2 && parts.all { it != null && it > 0 }) parts[0]!! to parts[1]!!
@@ -28,11 +44,13 @@ object SessionDisplay {
     fun resolutionOptions(panel: Pair<Int, Int>): List<String> {
         val panelHeight = minOf(panel.first, panel.second)
         return PRESET_HEIGHTS.filter { it <= panelHeight }.map { "${it}p" }
-            .filter { resolveChoice(panel, it) != screenSize(panel) } + MATCH_SCREEN + FOLLOW_SCREEN
+            .filter { resolveChoice(panel, it) != screenSize(panel) } + MATCH_SCREEN + FOLLOW_SCREEN +
+            FOLLOW_DIVISORS.map { followChoice(it) }
     }
 
-    fun followSize(width: Int, height: Int): Pair<Int, Int>? =
-        if (minOf(width, height) < FOLLOW_MIN_SIDE) null else (width and 1.inv()) to (height and 1.inv())
+    fun followSize(width: Int, height: Int, divisor: Int = 1): Pair<Int, Int>? =
+        if (minOf(width, height) < FOLLOW_MIN_SIDE) null
+        else (width / divisor.coerceAtLeast(1) and 1.inv()) to (height / divisor.coerceAtLeast(1) and 1.inv())
 
     fun foldable(context: Context): Boolean =
         context.packageManager.hasSystemFeature("android.hardware.sensor.hinge_angle")
