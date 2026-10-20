@@ -469,7 +469,7 @@ object SessionPrefs {
     fun resolutionChoice(context: Context, mode: String, panel: Pair<Int, Int>): String {
         val saved = prefs(context)
         saved.getString("displayResolution.$mode", null)?.let { value ->
-            if (value == SessionDisplay.MATCH_SCREEN || SessionDisplay.followDivisor(value) != null ||
+            if (value == SessionDisplay.MATCH_SCREEN || value == SessionDisplay.FOLLOW_SCREEN ||
                 SessionDisplay.presetHeight(value) != null) return value
             parseResolution(value)?.let { return "${it.first}x${it.second}" }
         }
@@ -480,7 +480,7 @@ object SessionPrefs {
     }
 
     fun setResolutionChoice(context: Context, mode: String, choice: String) {
-        val value = if (choice == SessionDisplay.MATCH_SCREEN || SessionDisplay.followDivisor(choice) != null ||
+        val value = if (choice == SessionDisplay.MATCH_SCREEN || choice == SessionDisplay.FOLLOW_SCREEN ||
                 SessionDisplay.presetHeight(choice) != null) choice else {
             val size = requireNotNull(parseResolution(choice)) { "Invalid resolution" }
             "${size.first}x${size.second}"
@@ -913,16 +913,18 @@ object SessionPrefs {
         prefs(context).edit().putString("foldedAspect", aspect).apply()
     }
 
-    /**
-     * A game's own Follow screen divisor (1 to 4) for one window size ("2184x984": a panel, an
-     * orientation, the space above the fold), or null to keep the session's.
-     */
-    fun gameFollowDivisor(context: Context, game: String, window: String): Int? =
-        prefs(context).getInt("followDivisor.$game.$window", 0).takeIf { it == 1 || it in SessionDisplay.FOLLOW_DIVISORS }
+    const val FOLLOW_CLIENT = "client"
 
-    fun setGameFollowDivisor(context: Context, game: String, window: String, divisor: Int?) {
+    /**
+     * Follow screen's divisor for a game, or [FOLLOW_CLIENT] for the Steam client, at one window size
+     * ("2184x984": a panel, an orientation, the space above a fold). 1 when never chosen.
+     */
+    fun followDivisor(context: Context, game: String, window: String): Float =
+        prefs(context).getFloat("followDivisor.$game.$window", 1f).takeIf { it in SessionDisplay.FOLLOW_DIVISORS } ?: 1f
+
+    fun setFollowDivisor(context: Context, game: String, window: String, divisor: Float) {
         val key = "followDivisor.$game.$window"
-        prefs(context).edit().apply { if (divisor == null) remove(key) else putInt(key, divisor) }.apply()
+        prefs(context).edit().apply { if (divisor == 1f) remove(key) else putFloat(key, divisor) }.apply()
     }
 
     val DECK_CONTROLS_SCALES = listOf(70, 80, 90, 100)

@@ -23,13 +23,13 @@ class SessionDisplayTest {
 
     @Test fun optionsListTheHeightsThePanelCanShowThenThePanel() {
         val thor = SessionDisplay.resolutionOptions(1920 to 1080)
-        assertEquals(listOf("720p", "900p", SessionDisplay.MATCH_SCREEN, SessionDisplay.FOLLOW_SCREEN, "follow/2", "follow/3", "follow/4"), thor)
-        assertEquals(listOf("720p", "900p", SessionDisplay.MATCH_SCREEN, SessionDisplay.FOLLOW_SCREEN, "follow/2", "follow/3", "follow/4"),
+        assertEquals(listOf("720p", "900p", SessionDisplay.MATCH_SCREEN, SessionDisplay.FOLLOW_SCREEN), thor)
+        assertEquals(listOf("720p", "900p", SessionDisplay.MATCH_SCREEN, SessionDisplay.FOLLOW_SCREEN),
             SessionDisplay.resolutionOptions(2400 to 1080))
-        assertEquals(listOf("720p", "900p", "1080p", SessionDisplay.MATCH_SCREEN, SessionDisplay.FOLLOW_SCREEN, "follow/2", "follow/3", "follow/4"),
+        assertEquals(listOf("720p", "900p", "1080p", SessionDisplay.MATCH_SCREEN, SessionDisplay.FOLLOW_SCREEN),
             SessionDisplay.resolutionOptions(3120 to 1440))
         val small = SessionDisplay.resolutionOptions(1280 to 720)
-        assertEquals(listOf(SessionDisplay.MATCH_SCREEN, SessionDisplay.FOLLOW_SCREEN, "follow/2", "follow/3", "follow/4"), small)
+        assertEquals(listOf(SessionDisplay.MATCH_SCREEN, SessionDisplay.FOLLOW_SCREEN), small)
         assertEquals(1280 to 720, SessionDisplay.resolveChoice(1280 to 720, SessionDisplay.MATCH_SCREEN))
         assertEquals(2560 to 1440, SessionDisplay.resolveChoice(2560 to 1440, SessionDisplay.MATCH_SCREEN))
     }
@@ -42,15 +42,13 @@ class SessionDisplayTest {
     }
 
     @Test fun followScreenCanRenderAtAFractionOfTheWindow() {
-        assertEquals(1, SessionDisplay.followDivisor(SessionDisplay.FOLLOW_SCREEN))
-        assertEquals(3, SessionDisplay.followDivisor("follow/3"))
-        assertNull(SessionDisplay.followDivisor("follow/7"))
-        assertNull(SessionDisplay.followDivisor(SessionDisplay.MATCH_SCREEN))
-        assertEquals(1092 to 984, SessionDisplay.followSize(2184, 1968, 2))
-        assertEquals(728 to 656, SessionDisplay.followSize(2184, 1968, 3))
-        assertEquals(546 to 492, SessionDisplay.followSize(2184, 1968, 4))
-        assertNull(SessionDisplay.followSize(640, 360, 2))
-        assertEquals(1092 to 984, SessionDisplay.resolveChoice(1968 to 2184, "follow/2"))
+        assertEquals(1092 to 984, SessionDisplay.followSize(2184, 1968, 2f))
+        assertEquals(1456 to 1312, SessionDisplay.followSize(2184, 1968, 1.5f))
+        assertEquals(728 to 656, SessionDisplay.followSize(2184, 1968, 3f))
+        assertEquals(546 to 492, SessionDisplay.followSize(2184, 1968, 4f))
+        assertNull(SessionDisplay.followSize(640, 360, 2f))
+        assertEquals("÷1.5", SessionDisplay.divisorLabel(1.5f))
+        assertEquals("÷2", SessionDisplay.divisorLabel(2f))
     }
 
     @Test fun aHalfFoldedGameTakesTheLargestBoxOfItsShapeAboveTheFold() {

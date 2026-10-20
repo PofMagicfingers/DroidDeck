@@ -34,6 +34,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -219,9 +220,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private var gestureGame: String? = null
     /** The game in front, for its own Follow screen divisor; null in the Steam client. */
     private var followGame by mutableStateOf<String?>(null)
-    private var gameFollowDivisor by mutableStateOf<Int?>(null)
+    private var followDivisor by mutableFloatStateOf(1f)
     private var followWindowSize by mutableStateOf<String?>(null)
-    private var sessionFollowDivisor = 1
     private var gestureSettingsOpen by mutableStateOf(false)
     private var recognizedGesture by mutableStateOf<TouchscreenGestures.Gesture?>(null)
     private var gesturePointerX = 0f
@@ -469,11 +469,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             )
         }
         applyOutputPacing()
-        sessionFollowDivisor = followDivisorChoice() ?: 1
-        if (!SessionState.running) {
-            SessionState.followDivisor = sessionFollowDivisor
-            SessionState.followScreen = followDivisorChoice() != null
-        }
+        if (!SessionState.running) SessionState.followScreen = followChoice()
         applyFollowOrientation(resources.configuration)
         goFullscreen()
         volumeControlStream = android.media.AudioManager.STREAM_MUSIC
@@ -810,10 +806,10 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                     secondScreenDisplays = secondScreenDisplays,
                     selectedSecondScreenDisplay = selectedSecondScreenDisplay,
                     onHud = { on -> SessionPrefs.setHudEnabled(this@SessionActivity, on); hudOn = on; hud.refresh() },
-                    followGame = if (SessionState.followScreen) followGame else null,
-                    followWindowSize = followWindowSize,
-                    gameFollowDivisor = gameFollowDivisor,
-                    onGameFollowDivisor = ::chooseGameFollowDivisor,
+                    followWindowSize = if (SessionState.followScreen) followWindowSize else null,
+                    followGameInFront = followGame != null,
+                    followDivisor = followDivisor,
+                    onFollowDivisor = ::chooseFollowDivisor,
                     onUpscaler = { m ->
                         SessionPrefs.setUpscaler(this@SessionActivity, m); upscaler = m
                         WaylandCompositor.nativeSetUpscaler(m)
@@ -1682,11 +1678,12 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     }
 
     /** Follow screen renders the game in front at its own divisor, the Steam client at the session's. */
+    /** Follow screen renders at the divisor chosen for what is in front (a game or the client) at this window size. */
     private fun applyGameFollowDivisor() {
         val window = if (surfaceW > 0) "${surfaceW}x$surfaceH" else null
         followWindowSize = window
-        gameFollowDivisor = followGame?.let { game -> window?.let { SessionPrefs.gameFollowDivisor(this, game, it) } }
-        val divisor = gameFollowDivisor ?: sessionFollowDivisor
+        val divisor = window?.let { SessionPrefs.followDivisor(this, followGame ?: SessionPrefs.FOLLOW_CLIENT, it) } ?: 1f
+        followDivisor = divisor
         if (!SessionState.followScreen) return
         if (divisor != SessionState.followDivisor) {
             Log.i(TAG, "follow screen: divisor ${SessionState.followDivisor} -> $divisor for ${followGame ?: "the client"} at $window")
@@ -1695,18 +1692,18 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         if (surfaceW > 0) followWindow(surfaceW, surfaceH)
     }
 
-    private fun chooseGameFollowDivisor(divisor: Int?) {
-        val game = followGame ?: return
+    private fun chooseFollowDivisor(divisor: Float) {
         val window = followWindowSize ?: return
-        SessionPrefs.setGameFollowDivisor(this, game, window, divisor)
+        SessionPrefs.setFollowDivisor(this, followGame ?: SessionPrefs.FOLLOW_CLIENT, window, divisor)
         applyGameFollowDivisor()
     }
 
-    private fun followDivisorChoice(): Int? {
+    private fun followChoice(): Boolean {
         val mode = displayMode()
-        return com.droiddeck.launcher.session.SessionDisplay.followDivisor(
-            SessionPrefs.resolutionChoice(this, mode, com.droiddeck.launcher.session.SessionDisplay.panelSize(this)))
+        return SessionPrefs.resolutionChoice(this, mode, com.droiddeck.launcher.session.SessionDisplay.panelSize(this)) ==
+            com.droiddeck.launcher.session.SessionDisplay.FOLLOW_SCREEN
     }
+
 
 
     private fun applyFollowOrientation(config: android.content.res.Configuration) {
@@ -3233,7 +3230,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         val display = com.droiddeck.launcher.session.SessionDisplay
         val choice = SessionPrefs.resolutionChoice(this, mode, panel)
         val size = display.resolveChoice(panel, choice)
-        val fixed = choice != display.MATCH_SCREEN && display.followDivisor(choice) == null && display.presetHeight(choice) == null
+        val fixed = choice != display.MATCH_SCREEN && choice != display.FOLLOW_SCREEN && display.presetHeight(choice) == null
         return if (fixed) display.resolve(panel, minOf(size.first, size.second), SessionPrefs.SHAPE_AUTO) else size
     }
 
