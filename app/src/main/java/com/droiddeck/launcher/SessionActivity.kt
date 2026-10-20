@@ -217,6 +217,10 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private lateinit var touchscreenGestures: TouchscreenGestures
     private var gestureConfig = com.droiddeck.launcher.input.TouchGestureConfig()
     private var gestureGame: String? = null
+    /** The game in front, for its own Follow screen divisor; null in the Steam client. */
+    private var followGame by mutableStateOf<String?>(null)
+    private var gameFollowDivisor by mutableStateOf<Int?>(null)
+    private var sessionFollowDivisor = 1
     private var gestureSettingsOpen by mutableStateOf(false)
     private var recognizedGesture by mutableStateOf<TouchscreenGestures.Gesture?>(null)
     private var gesturePointerX = 0f
@@ -464,8 +468,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             )
         }
         applyOutputPacing()
+        sessionFollowDivisor = followDivisorChoice() ?: 1
         if (!SessionState.running) {
-            SessionState.followDivisor = followDivisorChoice() ?: 1
+            SessionState.followDivisor = sessionFollowDivisor
             SessionState.followScreen = followDivisorChoice() != null
         }
         applyFollowOrientation(resources.configuration)
@@ -713,6 +718,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                         }
                     }
                     if (nextGame != gestureGame) { gestureGame = nextGame; refreshGestureConfig() }
+                    if (nextGame != followGame) { followGame = nextGame; applyGameFollowDivisor() }
                 }
                 LaunchedEffect(drawerOpen, pcKeyboardOpen, achievementsOpen, gestureSettingsOpen, pipUi, SessionState.suspended) {
                     if (drawerOpen || pcKeyboardOpen || achievementsOpen || gestureSettingsOpen || pipUi || SessionState.suspended) {
@@ -803,6 +809,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                     secondScreenDisplays = secondScreenDisplays,
                     selectedSecondScreenDisplay = selectedSecondScreenDisplay,
                     onHud = { on -> SessionPrefs.setHudEnabled(this@SessionActivity, on); hudOn = on; hud.refresh() },
+                    followGame = if (SessionState.followScreen) followGame else null,
+                    gameFollowDivisor = gameFollowDivisor,
+                    onGameFollowDivisor = ::chooseGameFollowDivisor,
                     onUpscaler = { m ->
                         SessionPrefs.setUpscaler(this@SessionActivity, m); upscaler = m
                         WaylandCompositor.nativeSetUpscaler(m)
@@ -1666,6 +1675,22 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         val panel = panelBounds()
         SessionState.upscaleRatio = maxOf(panel.width(), panel.height()).toFloat() / maxOf(size.first, size.second).coerceAtLeast(1)
         WaylandCompositor.nativeResizeOutput(size.first, size.second)
+    }
+
+    /** Follow screen renders the game in front at its own divisor, the Steam client at the session's. */
+    private fun applyGameFollowDivisor() {
+        gameFollowDivisor = followGame?.let { SessionPrefs.gameFollowDivisor(this, it) }
+        val divisor = gameFollowDivisor ?: sessionFollowDivisor
+        if (!SessionState.followScreen || divisor == SessionState.followDivisor) return
+        Log.i(TAG, "follow screen: divisor ${SessionState.followDivisor} -> $divisor for ${followGame ?: "the client"}")
+        SessionState.followDivisor = divisor
+        if (surfaceW > 0) followWindow(surfaceW, surfaceH)
+    }
+
+    private fun chooseGameFollowDivisor(divisor: Int?) {
+        val game = followGame ?: return
+        SessionPrefs.setGameFollowDivisor(this, game, divisor)
+        applyGameFollowDivisor()
     }
 
     private fun followDivisorChoice(): Int? {

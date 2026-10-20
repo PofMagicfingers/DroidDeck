@@ -913,6 +913,16 @@ object SessionPrefs {
         prefs(context).edit().putString("foldedAspect", aspect).apply()
     }
 
+    /** A game's own Follow screen divisor (1 to 4), or null to keep the session's. */
+    fun gameFollowDivisor(context: Context, game: String): Int? =
+        prefs(context).getInt("followDivisor.$game", 0).takeIf { it == 1 || it in SessionDisplay.FOLLOW_DIVISORS }
+
+    fun setGameFollowDivisor(context: Context, game: String, divisor: Int?) {
+        prefs(context).edit().apply {
+            if (divisor == null) remove("followDivisor.$game") else putInt("followDivisor.$game", divisor)
+        }.apply()
+    }
+
     val DECK_CONTROLS_SCALES = listOf(70, 80, 90, 100)
 
     /** The on-screen gamepad's size, as a percentage of the largest that fits. */
